@@ -31,7 +31,7 @@ Settings window:
 
 """
 
-import tkinter as tk
+import gui
 
 
 tcl_code = """
@@ -116,27 +116,14 @@ $win.mbar.help add command -label "About"
 wm protocol $win WM_DELETE_WINDOW closed
 """
 
-root = tk.Tk()
+utag = gui.strvar(".settings.utag.var")
+uauth = gui.strvar(".settings.uauth.var")
+tagidform = gui.strvar(".settings.tagidform.var")
 
-utag = tk.StringVar(name=".settings.utag.var")
-uauth = tk.StringVar(name=".settings.uauth.var")
-tagidform = tk.StringVar(name=".settings.tagidform.var")
+gui.run(tcl_code)
 
-def focused():
-    return root.tk.eval("focus")
-
-def closed():
-    print("window closed ({})".format(focused()))
-    root.destroy()
-
-root.tk.eval(tcl_code)
-
-print(utag.get())
-print(uauth.get())
-print(tagidform.get())
-
-root.tk.createcommand("closed", closed)
+gui.mkcmd("closed", gui.exit)
 
 
-root.mainloop()
+gui.loop()
 
