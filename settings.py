@@ -9,71 +9,67 @@ Settings window:
 ...and a help button next to each for hover-over explanations about each...
 
      0                  1
-   +------------------+-----------------------------------
-  0| User's Tag:      | [ttk::entry] -- ($win.utag.var)
+   +------------------+---------------------------------------
+  0| User's Tag:      | [ttk::entry] -- (settings.utag)
    | $win.utaglbl     | $win.utag      
-   +------------------+-----------------------------------
+   +------------------+---------------------------------------
   1| $win.utagexplain (ttk::label)
-   +------------------+-----------------------------------
-  2| User's Authority:| [ttk::entry] -- ($win.uauth.var)
+   +------------------+---------------------------------------
+  2| User's Authority:| [ttk::entry] -- (settings.uauth)
    | $win.uauthlbl    | $win.uauth
-   +------------------+-----------------------------------
+   +------------------+---------------------------------------
   3| $win.uauthexplain (ttk::label)
-   +------------------+-----------------------------------
-  4| New Tag Prefix:  | [ttk::entry] -- ($win.prefix.var)
+   +------------------+---------------------------------------
+  4| New Tag Prefix:  | [ttk::entry] -- (settings.tagidform)
    | $win.prefixlbl   | $win.prefix
-   +------------------+-----------------------------------
+   +------------------+---------------------------------------
   5| $win.prefixexplain (ttk::label)
-   +------------------+-----------------------------------
+   +------------------+---------------------------------------
   6| [tk::text $win.explanation -height 3]
    |                  .
-   +------------------+-----------------------------------
+   +------------------+---------------------------------------
 
 """
 
 import gui
+import tag
 
 
 tcl_code = """
-wm withdraw .
-
-set win ".settings"
-toplevel $win
-
 ttk::label $win.utaglbl -text "User's Tag:"
 grid $win.utaglbl -row 0 -column 0 -sticky e -padx "10 5" -pady "10 5"
 
-ttk::entry $win.utag -textvariable $win.utag.var
+ttk::entry $win.utag -textvariable settings.utag
 grid $win.utag -row 0 -column 1 -sticky ew -padx "0 10" -pady "10 5"
 
 ttk::label $win.utagexplain -text "This is the RFC 4151 Tag URI for the user, and it should begin with 'tag:'."
 grid $win.utagexplain -row 1 -column 0 -columnspan 2 -sticky w -padx 10 -pady "0 5"
 
-set $win.utag.var "tag:lionkimbro@gmail.com,2022:person:lion"
+set settings.utag "tag:lionkimbro@gmail.com,2022:person:lion"
 
 
 ttk::label $win.uauthlbl -text "User's Authority:"
 grid $win.uauthlbl -row 2 -column 0 -sticky e -padx "10 5" -pady 5
 
-ttk::entry $win.uauth -textvariable $win.uauth.var
+ttk::entry $win.uauth -textvariable settings.uauth
 grid $win.uauth -row 2 -column 1 -sticky ew -padx "0 10" -pady 5
 
 ttk::label $win.uauthexplain -text "This is either an e-mail address, or a domain name, that the user controls."
 grid $win.uauthexplain -row 3 -column 0 -columnspan 2 -sticky w -padx 10 -pady "0 5"
 
-set $win.uauth.var "lionkimbro@gmail.com"
+set settings.uauth "lionkimbro@gmail.com"
 
 
 ttk::label $win.tagidformlbl -text "Tag Identifier Form:"
 grid $win.tagidformlbl -row 4 -column 0 -sticky e -padx "10 5" -pady 5
 
-ttk::entry $win.tagidform -textvariable $win.tagidform.var
+ttk::entry $win.tagidform -textvariable settings.tagidform
 grid $win.tagidform -row 4 -column 1 -sticky ew -padx "0 10" -pady 5
 
 ttk::label $win.tagidformexplain -text "The form of a user tag.  It should probably be: %AUTH,%DAY:tag:%TAG, but could also use %MONTH or %YEAR."
 grid $win.tagidformexplain -row 5 -column 0 -columnspan 2 -sticky w -padx 10 -pady "0 5"
 
-set $win.tagidform.var "%AUTH,%DAY:tag:%TAG"
+set settings.tagidform "%AUTH,%DAY:tag:%TAG"
 
 
 grid columnconfigure $win 0 -weight 0
@@ -99,9 +95,9 @@ $win.mbar.file add separator
 $win.mbar.file add command -label "Save"
 $win.mbar.file add command -label "Save To"
 $win.mbar.file add separator
-$win.mbar.file add command -label "Exit"
+$win.mbar.file add command -label "Exit" -command exit
 
-$win.mbar.new add command -label "New Tag"
+$win.mbar.new add command -label "New Tag" -command newtag
 $win.mbar.new add command -label "New Map"
 
 $win.mbar.search add command -label "for Tag"
@@ -111,19 +107,52 @@ $win.mbar.help add command -label "Tutorial"
 $win.mbar.help add command -label "Contact"
 $win.mbar.help add separator
 $win.mbar.help add command -label "About"
-
-
-wm protocol $win WM_DELETE_WINDOW closed
+$win.mbar.help add separator
+$win.mbar.help add command -label "Debug" -command debug
 """
 
-utag = gui.strvar(".settings.utag.var")
-uauth = gui.strvar(".settings.uauth.var")
-tagidform = gui.strvar(".settings.tagidform.var")
 
-gui.run(tcl_code)
+UTAG="UTAG"
+UAUTH="UAUTH"
+TAGIDFORM="TAGIDFORM"
 
-gui.mkcmd("closed", gui.exit)
+g = {}
 
 
-gui.loop()
+def setup():
+    g[UTAG] = gui.strvar("settings.utag")
+    g[UAUTH] = gui.strvar("settings.uauth")
+    g[TAGIDFORM] = gui.strvar("settings.tagidform")
+    gui.mkcmd("newtag", newtag)
+    gui.mkcmd("exit", exit)
+    gui.mkcmd("debug", debug)
+
+
+def open():
+    """Open the settings window.
+    
+    TODO: make it so you can open it, and close it, and open it again
+    """
+    gui.toplevel()
+    gui.tclexec(tcl_code)
+
+
+# Information Requests from other modules
+
+def user_identifier():
+    return g[UTAG].get()
+
+# Commands
+
+def newtag():
+    """Create a new tag window."""
+    tag.new()
+    gui.task_fn(tag.populate_default)
+    gui.after_idle()
+
+def exit():
+    gui.tasks.append({gui.TYPE: gui.TYPE_EXIT})
+
+def debug():
+    breakpoint()
 
