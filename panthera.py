@@ -4,16 +4,22 @@
 """
 
 
+import data
 import gui
+import menubar
 import settings
 import tag
+import tagsearch
 
 
 def run():
+    data.setup()  # loads data from prior runs
     gui.setup()
+    menubar.setup()
     settings.setup()
-    settings.open()
+    tagsearch.setup()
     tag.setup()
+    tagsearch.open()
     gui.loop()
 
 

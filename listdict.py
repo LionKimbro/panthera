@@ -78,8 +78,45 @@ def req_triple(k, relation, v):
     fn = fn_mappings[relation]
     cue([D for D in g[LIST] if fn(D[k], v)])
 
-def req(*args):
-    if len(args) == 1:
+def req_matchall(D):
+    for k,v in D.items():
+        cue([D for D in g[LIST] if D[k] == v])
+
+def req(*args, **kw):
+    """Constrain down the list to meet some requirements.
+    
+    This can be called in several different ways.  In the example
+    below, we'll cull the list down to those dictionaries that have
+    D["x"] == 5.
+
+    1. req(fn)              -- ex: req(lambda D: D["x"] == 5)
+    2. req(k, fn)           -- ex: req("x", lambda x: x == 5)
+    3. req(k, relation, v)  -- ex: req("x", EQ, 5)
+    4. req(**kw)            -- ex: req(x=5)
+    
+    Or consider D["y"] > 10:
+
+    1. req(fn)              -- ex: req(lambda D: D["y"] > 10)
+    2. req(k, fn)           -- ex: req("y", lambda y: y > 10)
+    3. req(k, relation, v)  -- ex: req("y", GT, 10)
+    4. req(**kw)            -- CANNOT BE EXPRESSED;
+                               this form can only be used for equality checks
+
+    Or consider D["type"] == "foo" and D["name"] == "bar"
+
+    0. (Python List Comp:)  -- ex: L = [D for D in L if D["type"] == "foo" and D["name"] == "bar"]
+    1. req(fn)              -- ex: req(lambda D: D["type"] == "foo" and D["name"] == "bar")
+    2. req(k, fn)           -- ex: req("type", lambda s: s=="foo")
+                                   req("name", lambda s: s=="bar")
+                                   (this form can only be used via serial calls)
+    3. req(k, relation, v)  -- ex: req("type", EQ, "foo")
+                                   req("name", EQ, "bar")
+                                   (this form can only be used via serial calls)
+    4. req(**kw)            -- ex: req(type="foo", name="bar")
+    """
+    if kw:
+        req_matchall(kw)
+    elif len(args) == 1:
         req_fn(*args)
     elif len(args) == 2:
         req_fn2(*args)
@@ -90,7 +127,20 @@ def req(*args):
 
 
 def srt(k, reverse=False):
+    """Sort the list on a key."""
     g[LIST].sort(key=lambda D: D[k], reverse=reverse)
+
+
+def map(x):
+    """Return the result of doing something to each list item.
+    
+    map(fn)  --> returns result of applying fn to each item
+    map(str) --> returns result of key lookup for each item
+    """
+    if isinstance(x, str):
+        return [D[x] for D in g[LIST]]
+    else:
+        return [x(D) for D in g[LIST]]
 
 
 def show(spec):

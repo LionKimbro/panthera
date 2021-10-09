@@ -69,7 +69,7 @@ Menu:  File (Add, Forget, Save, Save To, Exit), New (New Tag, New Map), Search (
 
 Settings window: user's own tag, user's authority (e-mail addr or domain), prefix for default new tag identifiers ("%AUTH" for user's authority, "%YEAR" "%MONTH" or "%DAY%" for the current day's date,) help button next to each for hover-over explanations about each, 
 
-Tag window: tag, tags for tag, mnemonics, title, description (larger text area), identifier + generating checkbox (does it mirror tag w/ shaping from settings), creator, date created
+Tag window: tag, tags for tag, mnemonics, title, description (larger text area), identifier + generating checkbox (does it mirror tag w/ shaping from settings), creator, date created, maps participated in, see also tags
 
 Map window: name, title, map, description, identifier + generating checkbox (does it mirror name w/ shaping from settings), creator, data created
 

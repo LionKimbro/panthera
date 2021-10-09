@@ -104,7 +104,7 @@ ttk::frame $win.tag_frame
 grid $win.tag_frame -row 0 -column 0 -padx 10 -pady "5 0" -sticky nsew
 ttk::label $win.tag_frame.lbl -text "Tag:"
 grid $win.tag_frame.lbl -row 0 -column 0
-ttk::entry $win.tag_frame.widget -textvariable $win.tag_var -width 20
+ttk::entry $win.tag_frame.widget -textvariable $win.tag_var -width 30
 set $win.tag_var ""
 grid $win.tag_frame.widget -row 0 -column 1
 
@@ -187,7 +187,6 @@ ttk::button $win.buttons_frame.btn_load -text "Load Tag" -command tag_load
 grid $win.buttons_frame.btn_load -row 0 -column 1
 
 focus $win.tag_frame.widget
-raise $win
 """
 
 
@@ -204,17 +203,22 @@ def new():
     via gui.after_idle(), because it takes some time for Tk to update
     its focus model..!
     """
-    gui.push(TITLE="tag")
-    gui.toplevel()
+    gui.toplevel(gui.KIND_TAG)
     gui.tclexec(tcl_code)
-    gui.pop()
+    gui.lift()
 
 def populate_default():
+    """Populate tag window with default data.
+
+    ASSUMPTION: window cue'd
+    """
     default_h()
     h_to_window()
 
 def populate_from(tag):
     """Populate tag window from a tag in data, id'ed by name.
+    
+    ASSUMPTION: window cue'd
     
     If it worked, returns True.
     If no such tag found, does nothing and returns False.
@@ -229,7 +233,6 @@ def populate_from(tag):
 
 
 def save():
-    print("save:", gui.focused())
     window_to_h()
     data.add_tag()
 
@@ -243,16 +246,19 @@ def load():
         print("not found:", tag)
 
 
-def peek(s):
-    """Peek a value within the current toplevel tag window.
+def peek(k):
+    """Peek a value within the currently cue'd tag window.
     
-    ASSUMPTION: current toplevel is a tag window
+    ASSUMPTION: current $win is a tag window
     """
-    return gui.peek(gui.focused_toplevel()+"."+s)
+    return gui.peek("$win."+k)
 
 def poke(k, s):
-    """Poke a value within the current toplevel tag window."""
-    return gui.poke(gui.focused_toplevel()+"."+k, s)
+    """Poke a value within the currently cue'd tag window.
+    
+    ASSUMPTION: current $win is a tag window
+    """
+    gui.poke("$win."+k, s)
 
 
 def blank_h():
@@ -262,7 +268,7 @@ def blank_h():
     h[MNEMONICS] = []
     h[TITLE] = ""
     h[HOOK] = ""
-    h[DESCRIPTION] = "\n"
+    h[DESCRIPTION] = ""
     h[IDENTIFIER] = ""
     h[CREATOR] = ""
     h[CREATED] = ""
@@ -273,14 +279,13 @@ def default_h():
     h[MNEMONICS] = []
     h[TITLE] = ""
     h[HOOK] = ""
-    h[DESCRIPTION] = "\n"
+    h[DESCRIPTION] = ""
     h[IDENTIFIER] = ""
     h[CREATOR] = settings.user_identifier()
     h[CREATED] = time.strftime("%Y-%m-%d")
 
 def window_to_h():
-    """Imprint the focused tag window's data to memory."""
-    gui.cue()
+    """Imprint the cue'd tag window's data to memory."""
     h[TAG] = peek("tag_var")
     h[TAGS] = peek("tags_var").split()
     h[MNEMONICS] = peek("mnemonics_var").split()
@@ -292,8 +297,7 @@ def window_to_h():
     h[CREATED] = peek("created_var")
 
 def h_to_window():
-    """Set the window's data from memory."""
-    gui.cue()
+    """Set the cue'd window's data from memory."""
     poke("tag_var", h[TAG])
     poke("tags_var", " ".join(h[TAGS]))
     poke("mnemonics_var", " ".join(h[MNEMONICS]))
