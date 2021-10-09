@@ -6,25 +6,20 @@ select(win)  -- select a window
 
 import tkinter as tk
 
+from symbols import *
 from listdict import cue as list_cue
 from listdict import val, val1, val01, req, srt
 from listdict import EQ, NEQ, GT, LT, GTE, LTE
 from listdict import CONTAINS, NCONTAINS, WITHIN, NWITHIN
 
-import menubar
+# import menubar  -- REATTACH LATER
 
 
 # Global Variables
 
-NEXTID="NEXTID"
-REQUEST_TCLEXEC="REQUEST_TCLEXEC"  # for debug reasons; last tclexec request
-RESULT_TCLEXEC="RESULT_TCLEXEC"  # for debug reasons; tclexec last result
-LOOP_HANDLE="LOOP_HANDLE"  # handle of next scheduled call to mainloop_tasks
-
 g = {NEXTID: 1,
-     REQUEST_TCLEXEC: None,
-     RESULT_TCLEXEC: None,
-     LOOP_HANDLE: None}
+     TCL: {REQUEST: None, RESULT: None},
+     MAPPING: None}
 
 
 def nextid():
@@ -35,44 +30,33 @@ def nextid():
 
 # Constants -- Window Kind & Information
 
-TYPE="TYPE"; TYPE_KIND="TYPE_KIND"
-KIND="KIND"
-KIND_SETTINGS="KIND_SETTINGS"
-KIND_TAGSEARCH="KIND_TAGSEARCH"
-KIND_MAPSEARCH="KIND_MAPSEARCH"
-KIND_TAG="KIND_TAG"
-KIND_MAP="KIND_MAP"
-TITLE="TITLE"  # title to use
-TKNAME="TKNAME"  # tkname string, or, tkname prefix; string, and starts with a period
-UNIQUE="UNIQUE"  # True/False -- is this window unique?
-
 records = [
-    {TYPE: TYPE_KIND,
-     KIND: KIND_SETTINGS,
+    {TYPE: KIND,
+     KIND: SETTINGS,
      TITLE: "Panthera: Settings",
      TKNAME: ".settings",
      UNIQUE: True
     },
-    {TYPE: TYPE_KIND,
-     KIND: KIND_TAGSEARCH,
+    {TYPE: KIND,
+     KIND: TAGSEARCH,
      TITLE: "Panthera: Tag Search",
      TKNAME: ".tagsearch",
      UNIQUE: True
     },
-    {TYPE: TYPE_KIND,
-     KIND: KIND_MAPSEARCH,
+    {TYPE: KIND,
+     KIND: MAPSEARCH,
      TITLE: "Panthera: Map Search",
      TKNAME: ".mapsearch",
      UNIQUE: True
     },
-    {TYPE: TYPE_KIND,
-     KIND: KIND_TAG,
+    {TYPE: KIND,
+     KIND: TAG,
      TITLE: "Panthera: Tag Editor",
      TKNAME: ".tag",
      UNIQUE: False
     },
-    {TYPE: TYPE_KIND,
-     KIND: KIND_MAP,
+    {TYPE: KIND,
+     KIND: MAP,
      TITLE: "Panthera: Map Editor",
      TKNAME: ".map",
      UNIQUE: False
@@ -81,7 +65,7 @@ records = [
 
 def record_for_kind(kind):
     list_cue(records)
-    req(TYPE=TYPE_KIND, KIND=kind)
+    req(TYPE=KIND, KIND=kind)
     return val1()
 
 def kind_tkname(kind):
@@ -92,15 +76,13 @@ def kind_tkname(kind):
 
 tasks = []
 
-TYPE="TYPE"  # task type to run
-
-TYPE_CLOSETOP="CLOSETOP"  # TYPE:CLOSETOP -- instructs to close TOPLEVEL
+CLOSETOP="CLOSETOP"  # TYPE:CLOSETOP -- instructs to close TOPLEVEL
 TOPLEVEL="TOPLEVEL"  # TOPLEVEL -- contains the toplevel window to close
 
-TYPE_CALL="CALL"  # TYPE:CALL -- instructs to call a specific fn
+CALL="CALL"  # TYPE:CALL -- instructs to call a specific fn
 FN="FN"  # the function to call
 
-TYPE_EXIT="EXIT"  # TYPE:EXIT -- instructs to exit the program entirely
+EXIT="EXIT"  # TYPE:EXIT -- instructs to exit the program entirely
 
 
 # Context Construction
@@ -133,50 +115,95 @@ NAME="NAME"  # suggested string toplevel's name (other than "top")
 TITLE="TITLE"
 
 
-# Basics
+# Global Root & Functions -- Tk Fundamental
 
 root = tk.Tk()
 
-def poke(tkname, val):
-    """Poke a value literally into tk.
-    
-    Note that when you use CALL, it doesn't perform $-substitutions.
-    So I call peek first, to evaluate the tkname, and then use that for the set call.
-    """
-    tclexec('set poketmp '+tkname)  # directly perform substitutions into poketmp
-    tmp = tclexec('set poketmp')
-    root.tk.call('set', tmp, val)
+call = root.tk.call  # receives a list of literal strings
+createcommand = root.tk.createcommand  # literal key?
+tkeval = root.tk.eval  # direct; handled as a single string by tk
+
+
+# Functions -- primary interfaces: peek, poke, tclexec, & mkcmd
 
 def peek(tkname):
-    tclexec('set poketmp '+tkname)  # directly perform substitutions into poketmp
-    tmp = tclexec('set poketmp')
-    return root.tk.call('set', tmp)
+    """Peek a value.
+    
+    For example, peek("w") -> ".settings" (or whatever)
+    """
+    return tkeval('set '+tkname)
 
-def strvar(tkname):
-    """Return a tk.StringVar"""
-    return tk.StringVar(name=tkname)
-
-
-def mkcmd(tkname, fn):
-    """Bind a tk command to a function"""
-    root.tk.createcommand(tkname, fn)
-
-
-def after_idle():
-    """Call mainloop_tasks() RIGHT AWAY, don't wait 100ms"""
-    tclexec("after idle mainloop_tasks")
+def poke(tkname, s):
+    """Poke a string value literally into tk.
+    
+    Note that when you use CALL, it doesn't perform $-substitutions.
+    So I perform substitutions literally for the key, and then use that for the set call.
+    """
+    subst_key = tkeval('subst '+tkname)  # perform any substitutions in tkname
+    call('set', subst_key, s)  # use call, because it will work literally
 
 
 def tclexec(tcl_code):
     """Run tcl code"""
-    g[REQUEST_TCLEXEC] = tcl_code
-    g[RESULT_TCLEXEC] = root.tk.eval(tcl_code)
-    return g[RESULT_TCLEXEC]
+    g[TCL][REQUEST] = tcl_code
+    g[TCL][RESULT] = tkeval(tcl_code)
+    return g[TCL][RESULT]
 
+def mkcmd(tkname, fn):
+    """Bind a tk command to a function"""
+    createcommand(tkname, fn)
+
+
+# Functions -- Tk main loop control
 
 def loop():
     """Setup complete; Run main loop."""
     root.mainloop()
+
+
+def after_idle():
+    """Call mainloop_tasks() RIGHT AWAY, don't fuss for 100ms"""
+    cancel()
+    tclexec("after idle mainloop_tasks")
+
+
+def schedule():
+    """Schedule mainloop task, 100 ms into the future."""
+    tclexec("set afterhandle [after 100 mainloop_tasks]")
+
+
+def cancel():
+    """Cancel the next scheduled mainloop task."""
+    tclexec("after cancel $afterhandle")
+    tclexec("unset afterhandle")
+
+
+def mainloop_tasks():
+    while tasks:
+        D = tasks.pop()
+        if D[TYPE] == CLOSETOP:
+            name = D[TOPLEVEL]
+            cue(name)
+            tclexec("destroy $win")
+            if not toplevels():
+                task_exit()
+                after_idle()
+        elif D[TYPE] == CALL:
+            D[FN]()
+        elif D[TYPE] == EXIT:
+            root.destroy()
+    schedule()  # schedule the next run
+
+
+# Functions -- main entry & debug
+
+def debug():
+    cancel()
+    breakpoint()
+    schedule()
+
+
+# Functions -- Setup routine
 
 
 def setup():
@@ -187,41 +214,84 @@ def setup():
     schedule()  # start the main loop
 
 
-# Focus
-
-def tkname_to_toplevel(s):
-    poke("tmp", s)
-    return tclexec("winfo toplevel $tmp")
-
-def focused():
-    """Return tkname of current Tk focused widget.
-    
-    WARNING: While debugging, if the window is no longer focused,
-             you're going to get an empty string back, which,
-             technically speaking, is correct.
-    """
-    return tclexec("focus")
-
-def focused_toplevel():
-    """Return tkname of current focused toplevel widget.
-    
-    WARNING: While debugging, if the window is no longer focused,
-             you're going to get an empty string back, which,
-             technically speaking, is correct.
-    """
-    return tkname_to_toplevel(focused())
-
-
-# Top-Level Management
+# Focus & Cue-ing
 
 def cue(tkname=None):
-    """Cue a top-level for use.
-    
-    If tkname is None, uses the currently focused top-level window.
-    """
+    """Set tk's $w to tkname or currently focused window."""
     if tkname is None:
-        tkname = focused_toplevel()
-    poke("win", tkname)
+        tkname = focused()
+    poke("w", tkname)
+
+def cur():
+    return peek("w")
+
+def top():
+    """Returns the toplevel for $w."""
+    return tclexec("winfo toplevel $w")
+
+def name():
+    """Returns the name of $w, alone, without parents"""
+    return tclexec("winfo name $w")
+
+def wtype():
+    """Returns the "window type" of $w.
+    
+    Important notes:
+    * "window type" is not a tk concept;
+      rather, Tk refers to a window's "class";
+      see "winfo class" for more on this context
+    * "window type" is made up by me, and consists of a matching symbol;
+      presently (2021-10-09), I support here the symbols ENTRY and TEXT
+    * if a matching symbol is not found, returns the window class, per Tk
+    * HOWEVER: you should not use the window class --
+      instead, I want you to extend symbols.py with a symbol to correspond
+      with the window class, and that will be known as the window's "type"
+    * because type is already used and essential to Python,
+      I call the window type "wtype"
+    """
+    x = tclexec("winfo class $w")
+    if x == "TEntry":
+        return ENTRY
+    elif x == "Text":
+        return TEXT
+    else:
+        return x
+
+def children():
+    """Return the path names of the children of $w, as a list"""
+    return tclexec("winfo children $w").split()
+
+def text_get():
+    """Return text from the cue'd window."""
+    wt = wtype()
+    if wt == ENTRY:
+        return tclexec("$w get")
+    elif wt == TEXT:
+        return tclexec("$w get 1.0 end")
+    else:
+        raise ValueError("$w type not recognized")
+
+def text_set(s):
+    """Set text into the cue'd window."""
+    wt = wtype()
+    if wt == ENTRY:
+        poke("tmp", s)
+        tclexec("$w delete 0 end")
+        tclexec("$w insert 0 $tmp")
+    elif wt == TEXT:
+        poke("tmp", s)
+        tclexec("$w delete 1.0 end")
+        tclexec("$w insert 1.0 $tmp")
+    else:
+        raise ValueError("$w type not recognized")
+
+def set_win():
+    """Don't call this for new code.
+    
+    This is for compatability with older code.
+    It sets $win to the toplevel for w.
+    """
+    tclexec("set win [winfo toplevel $w]")
 
 def cuekind(kind):
     """Cue a unique top-level, by kind.
@@ -232,19 +302,36 @@ def cuekind(kind):
     assert rec[UNIQUE]
     cue(rec[TKNAME])
 
+
+def tkname_to_top(tkname):
+    poke("tmp", tkname)
+    return tclexec("winfo toplevel $tmp")
+
+def focused():
+    """Return tkname of current Tk focused window.
+    
+    WARNING: While debugging, if the toplevel is no longer focused,
+             you're going to get an empty string back, which,
+             technically speaking, is correct.
+    """
+    return tclexec("focus")
+
+
+# Top-Level Management
+
 def lift():
     """Raise the cue'd window to the top level."""
     tclexec("focus $win")
     tclexec("raise $win")
 
 def title(ttl):
-    """Entitle cue'd window."""
+    """Reset the title of the cue'd window's toplevel."""
     poke("tmp", ttl)
-    tclexec("wm title $win $tmp")
+    tclexec("wm title [winfo toplevel $w] $tmp")
 
 def exists():
     """Return True if the cue'd window still exists."""
-    return tclexec("winfo exists $win") == '1'
+    return tclexec("winfo exists $w") == '1'
 
 def toplevels():
     return tclexec("winfo children .").split()
@@ -260,72 +347,35 @@ def toplevel(kind):
     * What title to use for the window.
     * How to name the window.
     
-    The final tkname of the window is poked into "win", and returned.
+    The final tkname of the window is poked into "w", and returned.
     """
     rec = record_for_kind(kind)  # TITLE, UNIQUE, TKNAME
     tkname = rec[TKNAME]
     if not rec[UNIQUE]:
         tkname += str(nextid())
     cue(tkname)
-    tclexec("toplevel $win")
+    tclexec("toplevel $w")
     title(rec[TITLE])
-    menubar.attach()
-    tclexec("wm protocol $win WM_DELETE_WINDOW wm_delete_window")
+    # menubar.attach()  -- REATTACH LATER
+    tclexec("wm protocol $w WM_DELETE_WINDOW wm_delete_window")
     return tkname
 
 def wm_delete_window():
     """A top-level is being closed.  Is the program over?"""
-    task_closetop(focused_toplevel())
+    cue(); task_closetop(top())
 
 
 # Task Creation
 
 def task_closetop(toplevel):
-    tasks.append({TYPE:TYPE_CLOSETOP,
+    tasks.append({TYPE:CLOSETOP,
                   TOPLEVEL: toplevel})
 
 def task_fn(fn):
-    tasks.append({TYPE:TYPE_CALL,
+    tasks.append({TYPE:CALL,
                   FN: fn})
 
 def task_exit():
-    tasks.append({TYPE:TYPE_EXIT})
+    tasks.append({TYPE:EXIT})
 
-
-# Main Loop Checks
-
-def schedule():
-    """Schedule mainloop task, 100 ms into the future."""
-    g[LOOP_HANDLE] = tclexec("after 100 mainloop_tasks")
-
-def cancel():
-    """Cancel the next scheduled mainloop task."""
-    poke("tmp", g[LOOP_HANDLE])
-    tclexec("after cancel $tmp")
-    g[LOOP_HANDLE] = None
-
-def mainloop_tasks():
-    while tasks:
-        D = tasks.pop()
-        if D[TYPE] == TYPE_CLOSETOP:
-            name = D[TOPLEVEL]
-            cue(name)
-            tclexec("destroy $win")
-            if not toplevels():
-                task_exit()
-                after_idle()
-        elif D[TYPE] == TYPE_CALL:
-            D[FN]()
-        elif D[TYPE] == TYPE_EXIT:
-            root.destroy()
-    schedule()  # schedule the next run
-
-def pause():
-    """Toggle mainloop execution routine."""
-    
-    
-def debug():
-    cancel()
-    breakpoint()
-    schedule()
 

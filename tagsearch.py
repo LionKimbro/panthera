@@ -110,11 +110,11 @@ def setup():
 
 def open():
     """Open the tag search window."""
-    gui.cuekind(gui.KIND_TAGSEARCH)
+    gui.cuekind(TAGSEARCH)
     if gui.exists():
         gui.lift()
     else:
-        gui.toplevel(gui.KIND_TAGSEARCH)
+        gui.toplevel(TAGSEARCH)
         gui.tclexec(tcl_code)
 
 
@@ -137,17 +137,14 @@ def selected():
 # Functions -- callbacks
 
 def tagsearch_contains():
-    #gui.cuekind(gui.KIND_TAGSEARCH)
     gui.cue()
     listtags(data.list_tags_containing(g[CONTAINS].get()))
 
 def tagsearch_with():
-    #gui.cuekind(gui.KIND_TAGSEARCH)
     gui.cue()
     listtags(data.list_tags_tagged(g[WITH].get()))
 
 def tagsearch_open():
-    # gui.cuekind(gui.KIND_TAGSEARCH)
     gui.cue()
     tagname = selected()
     tag.new()
