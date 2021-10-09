@@ -88,11 +88,6 @@ def kind_tkname(kind):
     return record_for_kind(kind)[TKNAME]
 
 
-# Global Variables -- TopLevel Tracking
-
-open_toplevels = []  # list of toplevel identifiers
-
-
 # Global Variables -- Running Tasks
 
 tasks = []
@@ -194,7 +189,9 @@ def setup():
 
 # Focus
 
-tkname_to_toplevel = lambda s: "." + s.split(".")[1]
+def tkname_to_toplevel(s):
+    poke("tmp", s)
+    return tclexec("winfo toplevel $tmp")
 
 def focused():
     """Return tkname of current Tk focused widget.
@@ -249,6 +246,9 @@ def exists():
     """Return True if the cue'd window still exists."""
     return tclexec("winfo exists $win") == '1'
 
+def toplevels():
+    return tclexec("winfo children .").split()
+
 def toplevel(kind):
     """Create a new top-level, and return its name.
     
@@ -270,7 +270,6 @@ def toplevel(kind):
     tclexec("toplevel $win")
     title(rec[TITLE])
     menubar.attach()
-    open_toplevels.append(tkname)  # register the top-level
     tclexec("wm protocol $win WM_DELETE_WINDOW wm_delete_window")
     return tkname
 
@@ -310,16 +309,15 @@ def mainloop_tasks():
         D = tasks.pop()
         if D[TYPE] == TYPE_CLOSETOP:
             name = D[TOPLEVEL]
-            open_toplevels.remove(name)
             cue(name)
             tclexec("destroy $win")
+            if not toplevels():
+                task_exit()
+                after_idle()
         elif D[TYPE] == TYPE_CALL:
             D[FN]()
         elif D[TYPE] == TYPE_EXIT:
             root.destroy()
-    if not open_toplevels:
-        task_exit()
-        after_idle()
     schedule()  # schedule the next run
 
 def pause():
@@ -327,7 +325,7 @@ def pause():
     
     
 def debug():
-    gui.cancel()
+    cancel()
     breakpoint()
-    gui.schedule()
+    schedule()
 
