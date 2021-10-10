@@ -12,64 +12,19 @@ from listdict import val, val1, val01, req, srt
 from listdict import EQ, NEQ, GT, LT, GTE, LTE
 from listdict import CONTAINS, NCONTAINS, WITHIN, NWITHIN
 
-# import menubar  -- REATTACH LATER
+import menubar
 
 
 # Global Variables
 
 g = {NEXTID: 1,
-     TCL: {REQUEST: None, RESULT: None},
-     MAPPING: None}
+     TCL: {REQUEST: None, RESULT: None}}
 
 
 def nextid():
     """Return NEXTID, auto-increment."""
     g[NEXTID] += 1
     return g[NEXTID]-1
-
-
-# Constants -- Window Kind & Information
-
-records = [
-    {TYPE: KIND,
-     KIND: SETTINGS,
-     TITLE: "Panthera: Settings",
-     TKNAME: ".settings",
-     UNIQUE: True
-    },
-    {TYPE: KIND,
-     KIND: TAGSEARCH,
-     TITLE: "Panthera: Tag Search",
-     TKNAME: ".tagsearch",
-     UNIQUE: True
-    },
-    {TYPE: KIND,
-     KIND: MAPSEARCH,
-     TITLE: "Panthera: Map Search",
-     TKNAME: ".mapsearch",
-     UNIQUE: True
-    },
-    {TYPE: KIND,
-     KIND: TAG,
-     TITLE: "Panthera: Tag Editor",
-     TKNAME: ".tag",
-     UNIQUE: False
-    },
-    {TYPE: KIND,
-     KIND: MAP,
-     TITLE: "Panthera: Map Editor",
-     TKNAME: ".map",
-     UNIQUE: False
-    }
-]
-
-def record_for_kind(kind):
-    list_cue(records)
-    req(TYPE=KIND, KIND=kind)
-    return val1()
-
-def kind_tkname(kind):
-    return record_for_kind(kind)[TKNAME]
 
 
 # Global Variables -- Running Tasks
@@ -85,36 +40,6 @@ FN="FN"  # the function to call
 EXIT="EXIT"  # TYPE:EXIT -- instructs to exit the program entirely
 
 
-# Context Construction
-
-ERR="ERR"  # requesting error default
-
-S = []
-
-def set(k, v): S[-1][k] = v
-
-def get(k, default=None):
-    for D in reversed(S):
-        if k in D:
-            return D[k]
-    if default == ERR:
-        raise KeyError(k)
-    else:
-        return default
-
-def push(**D): S.append(D)
-
-def pop(): return S.pop()
-
-
-# Context Construction Keys
-
-NAME="NAME"  # suggested string toplevel's name (other than "top")
-# IMPORTANT: this name should be [a-z]*, otherwise
-#            you risk making a bad tcl identifier...
-TITLE="TITLE"
-
-
 # Global Root & Functions -- Tk Fundamental
 
 root = tk.Tk()
@@ -125,6 +50,15 @@ tkeval = root.tk.eval  # direct; handled as a single string by tk
 
 
 # Functions -- primary interfaces: peek, poke, tclexec, & mkcmd
+
+def subst(tkname):
+    """Perform substitutions on a tkname.
+    
+    This is most commonly used to resolve a full path.
+    
+    For example, "$top.foo" can substitute to "$tag1.foo".
+    """
+    return tkeval('subst '+tkname)
 
 def peek(tkname):
     """Peek a value.
@@ -139,8 +73,7 @@ def poke(tkname, s):
     Note that when you use CALL, it doesn't perform $-substitutions.
     So I perform substitutions literally for the key, and then use that for the set call.
     """
-    subst_key = tkeval('subst '+tkname)  # perform any substitutions in tkname
-    call('set', subst_key, s)  # use call, because it will work literally
+    call('set', subst(tkname), s)  # use call, because it will work literally
 
 
 def tclexec(tcl_code):
@@ -182,9 +115,8 @@ def mainloop_tasks():
     while tasks:
         D = tasks.pop()
         if D[TYPE] == CLOSETOP:
-            name = D[TOPLEVEL]
-            cue(name)
-            tclexec("destroy $win")
+            cue(D[TOPLEVEL])
+            tclexec("destroy $w")
             if not toplevels():
                 task_exit()
                 after_idle()
@@ -217,10 +149,25 @@ def setup():
 # Focus & Cue-ing
 
 def cue(tkname=None):
-    """Set tk's $w to tkname or currently focused window."""
+    """Set tk's $w to tkname or currently focused window.
+    
+    Very importantly: tkname may contain substitutions, allowing for
+    indirect referencing of window names.  For example, "$top.foo" can
+    be used to point to a window on a top level identified by tcl
+    variable "top".  (see: cue_top, for example)
+    
+    This is commonly used in the tcl_code executed to customize a
+    newly created window.
+    """
     if tkname is None:
         tkname = focused()
+    else:
+        tkname = subst(tkname)
     poke("w", tkname)
+
+def cue_top():
+    """Sets tk's $top to toplevel for $w."""
+    poke("top", top())
 
 def cur():
     return peek("w")
@@ -241,7 +188,8 @@ def wtype():
       rather, Tk refers to a window's "class";
       see "winfo class" for more on this context
     * "window type" is made up by me, and consists of a matching symbol;
-      presently (2021-10-09), I support here the symbols ENTRY and TEXT
+      presently (2021-10-09), I support here the symbols:
+        ENTRY, TEXT, and LISTBOX
     * if a matching symbol is not found, returns the window class, per Tk
     * HOWEVER: you should not use the window class --
       instead, I want you to extend symbols.py with a symbol to correspond
@@ -254,12 +202,15 @@ def wtype():
         return ENTRY
     elif x == "Text":
         return TEXT
+    elif x == "Listbox":
+        return LISTBOX
     else:
         return x
 
 def children():
     """Return the path names of the children of $w, as a list"""
     return tclexec("winfo children $w").split()
+
 
 def text_get():
     """Return text from the cue'd window."""
@@ -284,6 +235,34 @@ def text_set(s):
         tclexec("$w insert 1.0 $tmp")
     else:
         raise ValueError("$w type not recognized")
+
+def text_ro():
+    """Make text in the cue'd window read-only."""
+    wt = wtype()
+    if wt == ENTRY:
+        tclexec("$w configure -state readonly")  # can select, but not write
+    elif wt == TEXT:
+        print("gui.text_ro() on TEXT is untested")
+        tclexec("$w configure -state disabled")  # readonly doesn't exist for text
+    else:
+        raise ValueError("$w type not recognized")
+
+
+def list_clear():
+    tclexec("$w delete 0 end")
+
+def list_add(s):
+    poke("tmp", s)
+    tclexec("$w insert end $tmp")
+
+def list_set(L):
+    list_clear()
+    for x in L:
+        list_add(x)
+
+def list_selected():
+    return tclexec("$w get [$w curselection]")
+    
 
 def set_win():
     """Don't call this for new code.
@@ -321,8 +300,8 @@ def focused():
 
 def lift():
     """Raise the cue'd window to the top level."""
-    tclexec("focus $win")
-    tclexec("raise $win")
+    tclexec("focus $w")
+    tclexec("raise [winfo toplevel $w]")
 
 def title(ttl):
     """Reset the title of the cue'd window's toplevel."""
@@ -336,28 +315,46 @@ def exists():
 def toplevels():
     return tclexec("winfo children .").split()
 
-def toplevel(kind):
-    """Create a new top-level, and return its name.
+def toplevel_unique(tkname, ttl):
+    """Create or lift a unique toplevel.
     
-    Do not call this, if a unique window of the kind already exists.
-    That should be detected beforehand, by calling exists(kind).
+    If it was already created:
+      - the window is lifted,
+      - returns False
     
-    The kind of the window is used to locate information about the window.
-    * Whether it is multiple (tag editing windows) or singular (the settings window).
-    * What title to use for the window.
-    * How to name the window.
+    If it was NOT already created,
+      - the window is created,
+      - returns True (so you can do further preparations for it
     
-    The final tkname of the window is poked into "w", and returned.
+    TODO: relocate title assignment, outside of this fn,
+          matching toplevel_recurring;
+     [ ] and then update the docs of toplevel_recurring,
+         removing the explanation
     """
-    rec = record_for_kind(kind)  # TITLE, UNIQUE, TKNAME
-    tkname = rec[TKNAME]
-    if not rec[UNIQUE]:
-        tkname += str(nextid())
+    cue(tkname)
+    if exists():
+        lift()
+        return False
+    else:
+        tclexec("toplevel $w")
+        cue_top()
+        title(ttl)
+        tclexec("wm protocol $w WM_DELETE_WINDOW wm_delete_window")
+        menubar.attach()
+        return True
+
+def toplevel_recurring(tkname_prefix):
+    """Create a new top-level, and set $top to, and return, its tkname.
+    
+    Because the titles of recurring windows are highly variable,
+    title assignment is not bundled with this functionality.
+    """
+    tkname = tkname_prefix + str(nextid())
     cue(tkname)
     tclexec("toplevel $w")
-    title(rec[TITLE])
-    # menubar.attach()  -- REATTACH LATER
+    cue_top()
     tclexec("wm protocol $w WM_DELETE_WINDOW wm_delete_window")
+    menubar.attach()
     return tkname
 
 def wm_delete_window():
@@ -377,5 +374,4 @@ def task_fn(fn):
 
 def task_exit():
     tasks.append({TYPE:EXIT})
-
 

@@ -17,6 +17,7 @@ def setup():
 def master_save():
     data = [settings.save(), tagrecords.save()]
     json.dump(data, open("db.txt", "w", encoding="utf-8"), indent=2)
+    print("saved")
 
 def master_load():
     data = json.load(open("db.txt", "r", encoding="utf-8"))

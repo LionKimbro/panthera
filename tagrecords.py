@@ -47,6 +47,32 @@ def add(rec):
     records.append(rec)
 
 
+# Functions -- Blanks & Defaults
+
+def blank():
+    return {TAG: "",
+            TAGS: [],
+            MNEMONICS: [],
+            TITLE: "",
+            HOOK: "",
+            DESCRIPTION: "",
+            IDENTIFIER: "",
+            CREATOR: "",
+            CREATED: ""}
+
+def default():
+    import time, settings
+    return {TAG: "",
+            TAGS: [],
+            MNEMONICS: [],
+            TITLE: "",
+            HOOK: "",
+            DESCRIPTION: "",
+            IDENTIFIER: "",
+            CREATOR: settings.user_identifier(),
+            CREATED: time.strftime("%Y-%m-%d")}
+
+
 # Functions -- Locating groups of tags
 
 def tags_and_mnemonics(rec):
@@ -68,12 +94,12 @@ def list_tags_containing(s):
     srt(CREATED)
     return val()
 
-def list_tags_tagged(s):
+def list_tags_tagged(L):
     """cue a list of records that are tagged by all tags listed
     
     s: str, white-space delimited tags
     """
-    search_for = set(s.split())
+    search_for = set(L)
     cue(records)
     req(lambda rec: includes_tags(rec, search_for))
     return val()

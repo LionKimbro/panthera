@@ -9,63 +9,51 @@ import tag
 
 
 tcl_code = """
-menu $win.mbar
-$win configure -menu $win.mbar
+menu $top.mbar
+$top configure -menu $top.mbar
 
-menu $win.mbar.file
-menu $win.mbar.new
-menu $win.mbar.search
-menu $win.mbar.help
+menu $top.mbar.file
+menu $top.mbar.new
+menu $top.mbar.search
+menu $top.mbar.help
 
-$win.mbar add cascade -menu $win.mbar.file -label Panthera
-$win.mbar add cascade -menu $win.mbar.new -label New
-$win.mbar add cascade -menu $win.mbar.search -label Search
-$win.mbar add cascade -menu $win.mbar.help -label Help
+$top.mbar add cascade -menu $top.mbar.file -label Panthera
+$top.mbar add cascade -menu $top.mbar.new -label New
+$top.mbar add cascade -menu $top.mbar.search -label Search
+$top.mbar add cascade -menu $top.mbar.help -label Help
 
-$win.mbar.file add command -label "Settings" -command settings
-$win.mbar.file add separator
-$win.mbar.file add command -label "Add Source"
-$win.mbar.file add command -label "Save" -command save
-$win.mbar.file add separator
-$win.mbar.file add command -label "Exit" -command exit
+$top.mbar.file add command -label "Settings" -command settings
+$top.mbar.file add separator
+$top.mbar.file add command -label "Add Source"
+$top.mbar.file add command -label "Save" -command save
+$top.mbar.file add separator
+$top.mbar.file add command -label "Exit" -command exit
 
-$win.mbar.new add command -label "New Tag" -command newtag
-$win.mbar.new add command -label "New Map"
+$top.mbar.new add command -label "New Tag" -command newtag
+$top.mbar.new add command -label "New Map"
 
-$win.mbar.search add command -label "for Tag" -command tagsearch
-$win.mbar.search add command -label "for Map"
+$top.mbar.search add command -label "for Tag" -command tagsearch
+$top.mbar.search add command -label "for Map"
 
-$win.mbar.help add command -label "Tutorial"
-$win.mbar.help add command -label "Contact"
-$win.mbar.help add separator
-$win.mbar.help add command -label "About"
-$win.mbar.help add separator
-$win.mbar.help add command -label "Debug" -command debug
+$top.mbar.help add command -label "Tutorial"
+$top.mbar.help add command -label "Contact"
+$top.mbar.help add separator
+$top.mbar.help add command -label "About"
+$top.mbar.help add separator
+$top.mbar.help add command -label "Debug" -command debug
 """
 
 
 def setup():
     gui.mkcmd("settings", settings.open)
-    gui.mkcmd("newtag", newtag)
+    gui.mkcmd("newtag", tag.new)
     gui.mkcmd("exit", gui.task_exit)
     gui.mkcmd("debug", gui.debug)
-    gui.mkcmd("save", save)
+    gui.mkcmd("save", data.master_save)
     gui.mkcmd("tagsearch", tagsearch.open)
 
 
 def attach():
+    """called by gui.toplevel_unique & gui.toplevel_recurring"""
     gui.tclexec(tcl_code)
-
-
-# Commands
-
-def newtag():
-    """Create a new tag window."""
-    tag.new()
-    tag.populate_default()
-
-def save():
-    settings.save_to_record()
-    data.save()
-    print("saved")
 

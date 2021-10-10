@@ -2,40 +2,45 @@
 
 The mapping format is as follows:
 
-    [("tk-window-path", (path, to, follow, into, D)),
+    [("tk-window-path", key, type),
       ...]
     
-"tk-window-path" means the full path of a tk window.
-    
-The path to follow into D is per util.py's "path_set" and "path_get"
-functions.
+"tk-window-path" means the full path of a tk window;
+  VERY IMPORTANTLY, it may contain substitutions.
 
+"k" is a path into a dictionary.
 
-Use this in two steps:
-
-  1. winmap.configure(D, mapping)
-
-  2. winmap.store_to_window()
-       or
-     winmap.window_to_store()
+"type" is either STR or TAGS
+  STR: a literally string, passed through directly
+  STRLIST: a list of strings, split on newlines
+    Tk widget <-- " ".join(L)   s.split() --> Python value
 """
 
-import gui
-from gui import cue, text_set, text_get
+from symbols import *
 
-import util
-from util import path_set, path_get
+import gui
 
 
 def window_to_store(D, mapping):
     """load window paths into dictionary, according to configuration"""
-    for (w, p) in mapping:
-        cue(w)
-        path_set(D, p, text_get())
+    for (w, k, t) in mapping:
+        gui.cue(w)
+        val = gui.text_get()
+        if t == STR:
+            D[k] = val
+        elif t == STRLIST:
+            D[k] = val.split()
+        else:
+            raise ValueError
 
 def store_to_window(D, mapping):
     """load dictionary into window paths, according to configuration"""
-    for (w, p) in mapping:
-        cue(w)
-        text_set(path_get(D, p))
+    for (w, k, t) in mapping:
+        gui.cue(w)
+        if t == STR:
+            gui.text_set(D[k])
+        elif t == STRLIST:
+            gui.text_set(" ".join(D[k]))
+        else:
+            raise ValueError
 

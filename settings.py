@@ -15,7 +15,6 @@ from symbols import *
 
 import gui
 import winmap
-#import data
 
 
 tcl_code = """
@@ -54,31 +53,26 @@ grid columnconfigure .settings 1 -weight 1
 """
 
 
-g = {USER:
-     {IDENTIFIER: "",  # STR, id -- the user's globally unique identifier
-      AUTHORITY: ""},  # STR, e-mail or domain -- the user's authority claim
+g = {USER: "", # STR, id -- the user's globally unique identifier
+     AUTHORITY: "", # STR, e-mail or domain -- the user's authority claim
      PATTERN: ""}  # STR, special -- pattern to apply for new tags
 
-g[USER][IDENTIFIER] = "tag:example.com,2022:person:your-name-here"
-g[USER][AUTHORITY] = "your-email-here@gmail.com"
+g[USER] = "tag:example.com,2022:person:your-name-here"
+g[AUTHORITY] = "your-email-here@gmail.com"
 g[PATTERN] = "tag:%AUTH,%DAY:tag:%TAG"
 
 
 def open():
     """Open the settings window."""
-    gui.cuekind(SETTINGS)
-    if gui.exists():
-        gui.lift()
-    else:
-        gui.toplevel(SETTINGS)
+    if gui.toplevel_unique(".settings", "Panthera: Settings"):
         gui.tclexec(tcl_code)
-        # load_from_record()
+        g_to_window()
 
 
 mapping = [
-    (".settings.userid", (USER, IDENTIFIER)),
-    (".settings.uauth", (USER, AUTHORITY)),
-    (".settings.tagidform", (PATTERN,))
+    (".settings.userid", USER, STR),
+    (".settings.uauth", AUTHORITY, STR),
+    (".settings.tagidform", PATTERN, STR)
 ]
 
 # Functions -- Window <-> g
@@ -106,12 +100,12 @@ def save():
 # Information Requests from other modules
 
 def user_identifier():
-    return g[USER][IDENTIFIER]
+    return g[USER]
 
 def make_tag_identifier(tag):
-    s = g[TAG][PATTERN]
+    s = g[PATTERN]
     s = s.replace("%TAG", tag)
-    s = s.replace("%AUTH", g[USER][AUTHORITY])
+    s = s.replace("%AUTH", g[AUTHORITY])
     s = s.replace("%DAY", time.strftime("%Y-%m-%d"))
     s = s.replace("%MONTH", time.strftime("%Y-%m"))
     s = s.replace("%YEAR", time.strftime("%Y"))

@@ -1,226 +1,165 @@
-"""
-Tag window:
+"""tag.py  -- panthera tag window
 
-- tag
-- tags
-- mnemonics
-- title
-- hook
-- description (larger text area)
-- identifier + generating checkbox
-- creator
-- date created
-
-- user's authority (e-mail addr or domain)
-- prefix for default new tag identifiers
-  ("%AUTH" for user's authority, "%YEAR" "%MONTH" or "%DAY%" for the current day's date,)
-
-...and a help button next to each for hover-over explanations about each...
+See tagrecords.py for the structure of a tag record.
 """
 
 import time
 
 from symbols import *
+
 import gui
-import settings
-import data
-
-
-# "h" -- normally, I use "g" to refer to clobals,
-#        but these aren't general globals -- these are a SPECIFIC
-#        memory imprint to or from a tag window,
-#        so I am going one letter past g, to "h",
-#        to demark this specific global data
-#
-#        use window_to_h() to imprint from the live window,
-#        and h_to_window() to restore to the live window
-#
-h = {TAG: None,  # STR, word -- the formal tag, as a word, that this record describes
-     TAGS: None,  # STRLIST, words -- the bona fida tags to find the tag
-     MNEMONICS: None,  # STRLIST, words -- mnemonic tags to find the tag
-     TITLE: None,  # STR, title -- the title for the formal tag
-     HOOK: None,  # STR, phrase -- a phrase recalling the importance of the tag
-     DESCRIPTION: None,  # STR, text -- long description of the tag
-     IDENTIFIER: None,  # STR, id -- globally unique id for the tag
-     CREATOR: None,  # STR, id -- globally unique id for the tag
-     CREATED: None}  # STR, iso-8601 date -- date the tag was created
+import winmap
+import tagrecords
 
 
 tcl_code = """
-grid columnconfigure $win 0 -weight 1
+grid columnconfigure $top 0 -weight 1
 
-ttk::frame $win.tag_frame
-grid $win.tag_frame -row 0 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.tag_frame.lbl -text "Tag:"
-grid $win.tag_frame.lbl -row 0 -column 0
-ttk::entry $win.tag_frame.widget -width 30
-grid $win.tag_frame.widget -row 0 -column 1
+ttk::frame $top.tag_frame
+grid $top.tag_frame -row 0 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.tag_frame.lbl -text "Tag:"
+grid $top.tag_frame.lbl -row 0 -column 0
+ttk::entry $top.tag_frame.widget -width 30
+grid $top.tag_frame.widget -row 0 -column 1
 
-ttk::frame $win.tags_frame
-grid $win.tags_frame -row 1 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.tags_frame.lbl -text "Tags:"
-grid $win.tags_frame.lbl -row 0 -column 0
-ttk::entry $win.tags_frame.widget
-grid $win.tags_frame.widget -row 0 -column 1 -sticky ew
-grid columnconfigure $win.tags_frame 1 -weight 1
+ttk::frame $top.tags_frame
+grid $top.tags_frame -row 1 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.tags_frame.lbl -text "Tags:"
+grid $top.tags_frame.lbl -row 0 -column 0
+ttk::entry $top.tags_frame.widget
+grid $top.tags_frame.widget -row 0 -column 1 -sticky ew
+grid columnconfigure $top.tags_frame 1 -weight 1
 
-ttk::frame $win.mnemonics_frame
-grid $win.mnemonics_frame -row 2 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.mnemonics_frame.lbl -text "Mnemonics:"
-grid $win.mnemonics_frame.lbl -row 0 -column 0
-ttk::entry $win.mnemonics_frame.widget
-grid $win.mnemonics_frame.widget -row 0 -column 1 -sticky ew
-grid columnconfigure $win.mnemonics_frame 1 -weight 1
+ttk::frame $top.mnemonics_frame
+grid $top.mnemonics_frame -row 2 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.mnemonics_frame.lbl -text "Mnemonics:"
+grid $top.mnemonics_frame.lbl -row 0 -column 0
+ttk::entry $top.mnemonics_frame.widget
+grid $top.mnemonics_frame.widget -row 0 -column 1 -sticky ew
+grid columnconfigure $top.mnemonics_frame 1 -weight 1
 
-ttk::frame $win.title_frame
-grid $win.title_frame -row 3 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.title_frame.lbl -text "Title:"
-grid $win.title_frame.lbl -row 0 -column 0
-ttk::entry $win.title_frame.widget -width 60
-grid $win.title_frame.widget -row 0 -column 1
+ttk::frame $top.title_frame
+grid $top.title_frame -row 3 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.title_frame.lbl -text "Title:"
+grid $top.title_frame.lbl -row 0 -column 0
+ttk::entry $top.title_frame.widget -width 60
+grid $top.title_frame.widget -row 0 -column 1
 
-ttk::frame $win.hook_frame
-grid $win.hook_frame -row 4 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.hook_frame.lbl -text "Hook:"
-grid $win.hook_frame.lbl -row 0 -column 0
-ttk::entry $win.hook_frame.widget -width 60
-grid $win.hook_frame.widget -row 0 -column 1
+ttk::frame $top.hook_frame
+grid $top.hook_frame -row 4 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.hook_frame.lbl -text "Hook:"
+grid $top.hook_frame.lbl -row 0 -column 0
+ttk::entry $top.hook_frame.widget -width 60
+grid $top.hook_frame.widget -row 0 -column 1
 
-ttk::frame $win.description_frame
-grid $win.description_frame -row 5 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.description_frame.lbl -text "Description:"
-grid $win.description_frame.lbl -row 0 -column 0
-tk::text $win.description_frame.widget -width 80 -height 3
-grid $win.description_frame.widget -row 0 -column 1  -sticky ew
-grid columnconfigure $win.description_frame 1 -weight 1
+ttk::frame $top.description_frame
+grid $top.description_frame -row 5 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.description_frame.lbl -text "Description:"
+grid $top.description_frame.lbl -row 0 -column 0
+tk::text $top.description_frame.widget -width 80 -height 3
+grid $top.description_frame.widget -row 0 -column 1  -sticky ew
+grid columnconfigure $top.description_frame 1 -weight 1
 
-ttk::frame $win.identifier_frame
-grid $win.identifier_frame -row 6 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.identifier_frame.lbl -text "Identifier:"
-grid $win.identifier_frame.lbl -row 0 -column 0
-ttk::entry $win.identifier_frame.widget
-grid $win.identifier_frame.widget -row 0 -column 1 -sticky ew
-grid columnconfigure $win.identifier_frame 1 -weight 1
-ttk::checkbutton $win.identifier_frame.check -onvalue 1
-grid $win.identifier_frame.check -row 0 -column 2
+ttk::frame $top.identifier_frame
+grid $top.identifier_frame -row 6 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.identifier_frame.lbl -text "Identifier:"
+grid $top.identifier_frame.lbl -row 0 -column 0
+ttk::entry $top.identifier_frame.widget
+grid $top.identifier_frame.widget -row 0 -column 1 -sticky ew
+grid columnconfigure $top.identifier_frame 1 -weight 1
+ttk::button $top.identifier_frame.assign -text "Build Identifier" -command tag_buildid
+grid $top.identifier_frame.assign -row 0 -column 2
 
-ttk::frame $win.creator_frame
-grid $win.creator_frame -row 7 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.creator_frame.lbl -text "Creator:"
-grid $win.creator_frame.lbl -row 0 -column 0
-ttk::entry $win.creator_frame.widget -width 50
-grid $win.creator_frame.widget -row 0 -column 1
+ttk::frame $top.creator_frame
+grid $top.creator_frame -row 7 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.creator_frame.lbl -text "Creator:"
+grid $top.creator_frame.lbl -row 0 -column 0
+ttk::entry $top.creator_frame.widget -width 50
+grid $top.creator_frame.widget -row 0 -column 1
 
-ttk::frame $win.created_frame
-grid $win.created_frame -row 8 -column 0 -padx 10 -pady "5 0" -sticky nsew
-ttk::label $win.created_frame.lbl -text "Created:"
-grid $win.created_frame.lbl -row 0 -column 0
-ttk::entry $win.created_frame.widget -width 12
-grid $win.created_frame.widget -row 0 -column 1
+ttk::frame $top.created_frame
+grid $top.created_frame -row 8 -column 0 -padx 10 -pady "5 0" -sticky nsew
+ttk::label $top.created_frame.lbl -text "Created:"
+grid $top.created_frame.lbl -row 0 -column 0
+ttk::entry $top.created_frame.widget -width 12
+grid $top.created_frame.widget -row 0 -column 1
 
-ttk::frame $win.buttons_frame
-grid $win.buttons_frame -row 9 -column 0 -padx 10 -pady 5 -sticky nsew
-ttk::button $win.buttons_frame.btn_save -text "Save Tag" -command tag_save
-grid $win.buttons_frame.btn_save -row 0 -column 0
+ttk::frame $top.buttons_frame
+grid $top.buttons_frame -row 9 -column 0 -padx 10 -pady 5 -sticky nsew
+ttk::button $top.buttons_frame.btn_save -text "Save Tag" -command tag_save
+grid $top.buttons_frame.btn_save -row 0 -column 0
 
-focus $win.tag_frame.widget
+focus $top.tag_frame.widget
 """
 
 
 def setup():
+    """initializing the module"""
     gui.mkcmd("tag_save", save)
+    gui.mkcmd("tag_buildid", buildid)
 
+
+# Functions -- creating a new window
+
+def construct():
+    """Construct the frame of a new tag window.
+    
+    This is only to be called by either new(), or make(tag).
+    """
+    gui.toplevel_recurring(".tag")
+    gui.tclexec(tcl_code)
 
 def new():
-    """Create a new tag window.
-    
-    After you call this, call either .populate_default(), or
-    populate_from(tag).  BUT: do so via gui.task_fn(lambda:...) and
-    via gui.after_idle(), because it takes some time for Tk to update
-    its focus model..!
-    """
-    gui.toplevel(TAG)
-    gui.tclexec(tcl_code)
-    gui.lift()
+    """Create a tag window, that is blank, ready to be filled out."""
+    construct()
+    gui.cue_top()
+    gui.title("Panthera: New Tag")
+    rec_to_window(tagrecords.default())
 
-def populate_default():
-    """Populate tag window with default data.
+def make(tag):
+    """Create a tag window, representing the given pre-existing tag."""
+    construct()
+    gui.cue_top()
+    gui.title("Panthera: Tag: "+tag)
+    rec_to_window(tagrecords.find(tag))
+    gui.cue("$top.tag_frame.widget")
+    gui.text_ro()
 
-    ASSUMPTION: window cue'd
-    """
-    default_h()
-    h_to_window()
 
-def populate_from(tag):
-    """Populate tag window from a tag in data, id'ed by name.
-    
-    ASSUMPTION: window cue'd
-    
-    If it worked, returns True.
-    If no such tag found, does nothing and returns False.
-    """
-    D = data.find_tag(tag)
-    if D:
-        data.record_to_tag(D)
-        h_to_window()
-        return True
-    else:
-        return False
-
+# Functions -- Callbacks
 
 def save():
-    window_to_h()
-    data.add_tag()
+    gui.cue()
+    gui.cue_top()
+    tagrecords.add(window_to_rec())
+
+def buildid():
+    import settings
+    gui.cue()
+    gui.cue_top()
+    rec = window_to_rec()
+    gui.cue("$top.identifier_frame.widget")
+    gui.text_set(settings.make_tag_identifier(rec[TAG]))
 
 
-# Functions -- global h data blank/default/keep/restore
-
-def blank_h():
-    """Blank the memory."""
-    h[TAG] = ""
-    h[TAGS] = []
-    h[MNEMONICS] = []
-    h[TITLE] = ""
-    h[HOOK] = ""
-    h[DESCRIPTION] = ""
-    h[IDENTIFIER] = ""
-    h[CREATOR] = ""
-    h[CREATED] = ""
-
-def default_h():
-    h[TAG] = ""
-    h[TAGS] = []
-    h[MNEMONICS] = []
-    h[TITLE] = ""
-    h[HOOK] = ""
-    h[DESCRIPTION] = ""
-    h[IDENTIFIER] = ""
-    h[CREATOR] = settings.user_identifier()
-    h[CREATED] = time.strftime("%Y-%m-%d")
-
+# Functions -- record to window, and vice versa
 
 mapping = [
-    (TAG, "$win.tag_frame.widget"),
-    (TAGS, "$win.tags_frame.widget"),
-    (MNEMONICS, "$win.mnemonics_frame.widget"),
-    (TITLE, "$win.title_frame.widget"),
-    (HOOK, "$win.hook_frame.widget"),
-    (IDENTIFIER, "$win.identifier_frame.widget"),
-    (CREATOR, "$win.creator_frame.widget"),
-    (CREATED, "$win.created_frame.widget")
+    ("$top.tag_frame.widget", TAG, STR),
+    ("$top.tags_frame.widget", TAGS, STRLIST),
+    ("$top.mnemonics_frame.widget", MNEMONICS, STRLIST),
+    ("$top.title_frame.widget", TITLE, STR),
+    ("$top.hook_frame.widget", HOOK, STR),
+    ("$top.identifier_frame.widget", IDENTIFIER, STR),
+    ("$top.creator_frame.widget", CREATOR, STR),
+    ("$top.created_frame.widget", CREATED, STR)
 ]
 
-def window_to_h():
-    """Imprint the cue'd tag window's data to memory."""
-    for (hvar, widget) in mapping:
-        h[hvar] = read(widget)
-    h[DESCRIPTION] = gui.tclexec("$win.description_frame.widget get 1.0 end")
+def window_to_rec():
+    D = {}
+    winmap.window_to_store(D, mapping)
+    return D
 
-def h_to_window():
-    """Set the cue'd window's data from memory."""
-    for (hvar, widget) in mapping:
-        write(widget, h[hvar])
-    gui.poke("tmp", h[DESCRIPTION])  # gui.poke is absolute
-    gui.tclexec("$win.description_frame.widget delete 1.0 end")
-    gui.tclexec("$win.description_frame.widget insert end $tmp")
+def rec_to_window(D):
+    winmap.store_to_window(D, mapping)
 
